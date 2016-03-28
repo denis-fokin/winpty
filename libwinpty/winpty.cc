@@ -252,8 +252,7 @@ static std::wstring getDesktopFullName()
     return getObjectName(station) + L"\\" + getObjectName(desktop);
 }
 
-static void startAgentProcess(const BackgroundDesktop &desktop,
-                              bool consoleMode,
+static void startAgentProcess(bool consoleMode,
                               std::wstring &controlPipeName,
                               std::wstring &dataPipeName,
                               std::wstring &errDataPipeName,
@@ -273,7 +272,7 @@ static void startAgentProcess(const BackgroundDesktop &desktop,
     STARTUPINFO sui;
     memset(&sui, 0, sizeof(sui));
     sui.cb = sizeof(sui);
-    sui.lpDesktop = (LPWSTR)desktop.desktopName.c_str();
+    //sui.lpDesktop = (LPWSTR)desktop.desktopName.c_str();
     PROCESS_INFORMATION pi;
     memset(&pi, 0, sizeof(pi));
     std::vector<wchar_t> cmdline(agentCmdLine.size() + 1);
@@ -283,7 +282,7 @@ static void startAgentProcess(const BackgroundDesktop &desktop,
         &cmdline[0],
         NULL, NULL,
         /*bInheritHandles=*/FALSE,
-        /*dwCreationFlags=*/CREATE_NEW_CONSOLE,
+        /*dwCreationFlags=*/CREATE_NO_WINDOW,
         NULL, NULL,
         &sui, &pi);
     if (!success) {
@@ -327,11 +326,8 @@ WINPTY_API winpty_t *winpty_open(int cols, int rows, bool consoleMode)
         return NULL;
     }
 
-    // Setup a background desktop for the agent.
-    BackgroundDesktop desktop = setupBackgroundDesktop();
-
     // Start the agent.
-    startAgentProcess(desktop, consoleMode, controlPipeName, dataPipeName, errDataPipeName, cols, rows);
+    startAgentProcess(consoleMode, controlPipeName, dataPipeName, errDataPipeName, cols, rows);
 
     // Connect the pipes.
     bool success;
@@ -356,11 +352,6 @@ WINPTY_API winpty_t *winpty_open(int cols, int rows, bool consoleMode)
         return NULL;
     }
 
-    // Close handles to the background desktop and restore the original window
-    // station.  This must wait until we know the agent is running -- if we
-    // close these handles too soon, then the desktop and windowstation will be
-    // destroyed before the agent can connect with them.
-    restoreOriginalDesktop(desktop);
 
     // The default security descriptor for a named pipe allows anyone to connect
     // to the pipe to read, but not to write.  Only the "creator owner" and
